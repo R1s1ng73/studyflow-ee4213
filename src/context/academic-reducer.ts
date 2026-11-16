@@ -8,6 +8,7 @@ export type AcademicAction =
   | { type: "task/import"; tasks: Task[] }
   | { type: "task/update"; id: string; changes: Partial<Task>; changedAt: string }
   | { type: "task/delete"; id: string }
+  | { type: "tasks/estimate"; entries: Array<{ id: string; minutes: number }>; changedAt: string }
   | { type: "state/reset"; state: AcademicState };
 
 export function academicReducer(state: AcademicState, action: AcademicAction): AcademicState {
@@ -19,8 +20,13 @@ export function academicReducer(state: AcademicState, action: AcademicAction): A
       const incoming = action.state;
       if (state.currentMemberId && state.currentMemberId !== incoming.currentMemberId) return incoming;
       const previousTasks = new Map(state.tasks.map((task) => [task.id, task]));
-      const localTasks = state.tasks.filter((task) => !task.canvasUrl);
       const localProjects = state.projects.filter((project) => !project.canvasUrl);
+      const survivingProjectIds = new Set([...incoming.projects, ...localProjects].map((project) => project.id));
+      // Internal subtasks belong to the browser, not Canvas. Keep them, but drop any whose
+      // Canvas project disappeared so the stored workspace stays internally consistent.
+      const localTasks = state.tasks.filter(
+        (task) => !task.canvasUrl && (!task.projectId || survivingProjectIds.has(task.projectId)),
+      );
       const referencedCourses = new Set([...localTasks, ...localProjects].map((item) => item.courseId));
       const incomingCourses = new Set(incoming.courses.map((course) => course.id));
       return {
@@ -30,7 +36,15 @@ export function academicReducer(state: AcademicState, action: AcademicAction): A
           ...state.courses.filter((course) => referencedCourses.has(course.id) && !incomingCourses.has(course.id)),
         ],
         members: [...incoming.members, ...state.members.filter((member) => !member.id.startsWith("canvas-user-"))],
-        projects: [...incoming.projects, ...localProjects],
+        projects: [
+          ...incoming.projects.map((project) => {
+            const subtaskIds = localTasks
+              .filter((task) => task.projectId === project.id && !project.taskIds.includes(task.id))
+              .map((task) => task.id);
+            return subtaskIds.length > 0 ? { ...project, taskIds: [...project.taskIds, ...subtaskIds] } : project;
+          }),
+          ...localProjects,
+        ],
         tasks: [...incoming.tasks.map((task) => {
           const previous = previousTasks.get(task.id);
           if (!previous) return task;
@@ -42,12 +56,22 @@ export function academicReducer(state: AcademicState, action: AcademicAction): A
             gradeWeight: previous.gradeWeight,
             canvasPriorityOverride: previous.canvasPriorityOverride,
             priority: previous.canvasPriorityOverride ? previous.priority : task.priority,
+            internalDueDate: previous.internalDueDate,
+            createdBy: previous.createdBy,
           };
         }), ...localTasks],
       };
     }
-    case "task/add":
-      return { ...state, tasks: [...state.tasks, action.task] };
+    case "task/add": {
+      const projects = action.task.projectId
+        ? state.projects.map((project) =>
+            project.id === action.task.projectId && !project.taskIds.includes(action.task.id)
+              ? { ...project, taskIds: [...project.taskIds, action.task.id] }
+              : project,
+          )
+        : state.projects;
+      return { ...state, tasks: [...state.tasks, action.task], projects };
+    }
     case "task/import": {
       const tasks = [...state.tasks];
       const knownCourses = new Set(state.courses.map((course) => course.id));
@@ -96,5 +120,16 @@ export function academicReducer(state: AcademicState, action: AcademicAction): A
           taskIds: project.taskIds.filter((id) => id !== action.id),
         })),
       };
+    case "tasks/estimate": {
+      const estimates = new Map(action.entries.map((entry) => [entry.id, entry.minutes]));
+      let changed = false;
+      const tasks = state.tasks.map((task) => {
+        const minutes = estimates.get(task.id);
+        if (minutes === undefined || task.estimatedMinutes !== undefined) return task;
+        changed = true;
+        return { ...task, estimatedMinutes: minutes, updatedAt: action.changedAt };
+      });
+      return changed ? { ...state, tasks } : state;
+    }
   }
 }

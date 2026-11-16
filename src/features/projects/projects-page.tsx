@@ -8,6 +8,10 @@ import { useAcademic } from "@/context/academic-context";
 import { getProjectProgress } from "@/lib/selectors";
 import type { Task, TaskStatus } from "@/lib/types";
 import { GroupTaskDialog } from "@/components/projects/group-task-dialog";
+import {
+  InternalSubtaskDialog,
+  type InternalSubtaskValues,
+} from "@/components/projects/internal-subtask-dialog";
 import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectDetail } from "@/components/projects/project-detail";
 import {
@@ -17,10 +21,11 @@ import {
 } from "@/components/projects/project-utils";
 
 export function ProjectsPage() {
-  const { state, isHydrated, openTask, updateTask } = useAcademic();
+  const { state, isHydrated, openTask, updateTask, addTask, deleteTask, showToast } = useAcademic();
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const [filter, setFilter] = useState<ProjectTaskFilter>("all");
   const [editingTask, setEditingTask] = useState<Task>();
+  const [subtaskDialog, setSubtaskDialog] = useState<{ task?: Task } | null>(null);
   const [now] = useState(() => new Date());
   const detailHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -38,6 +43,9 @@ export function ProjectsPage() {
 
   const selectedProject =
     (state.projects.find((project) => project.id === selectedProjectId) ?? state.projects[0])!;
+  const selectedProjectMembers = selectedProject.memberIds
+    .map((memberId) => state.members.find((member) => member.id === memberId))
+    .filter((member): member is (typeof state.members)[number] => Boolean(member));
 
   function selectProject(projectId: string) {
     flushSync(() => {
@@ -57,6 +65,52 @@ export function ProjectsPage() {
     );
     setEditingTask(undefined);
   }
+
+  function saveSubtask(values: InternalSubtaskValues) {
+    if (!subtaskDialog) return;
+    const existing = subtaskDialog.task;
+    if (existing) {
+      updateTask(
+        existing.id,
+        {
+          title: values.title,
+          date: values.internalDueDate,
+          internalDueDate: values.internalDueDate,
+          assignedTo: values.assignedTo,
+          notes: values.notes,
+        },
+        `Internal deadline for ${values.title} was saved.`,
+      );
+    } else {
+      addTask({
+        title: values.title,
+        courseId: selectedProject.courseId,
+        assessmentType: "other",
+        dateMeaning: "submission-deadline",
+        date: values.internalDueDate,
+        internalDueDate: values.internalDueDate,
+        priority: "medium",
+        status: "not-started",
+        projectId: selectedProject.id,
+        ...(values.assignedTo ? { assignedTo: values.assignedTo } : {}),
+        ...(values.notes ? { notes: values.notes } : {}),
+        ...(state.currentMemberId ? { createdBy: state.currentMemberId } : {}),
+      });
+      setFilter("all");
+      showToast(`${values.title} was added to ${selectedProject.name} with an internal deadline.`);
+    }
+    setSubtaskDialog(null);
+  }
+
+  function deleteSubtask() {
+    if (!subtaskDialog?.task) return;
+    deleteTask(subtaskDialog.task.id);
+    setSubtaskDialog(null);
+  }
+
+  const subtaskCreator = subtaskDialog?.task?.createdBy
+    ? state.members.find((member) => member.id === subtaskDialog.task?.createdBy)?.displayName ?? "You"
+    : undefined;
 
   return (
     <div className="page-body">
@@ -78,7 +132,8 @@ export function ProjectsPage() {
           <h2 className="alert-heading h4 mb-1">Canvas group assignments</h2>
           <p className="mb-0">
             StudyFlow shows the group assignments and student names Canvas makes available.
-            Submission status comes from Canvas. Team roles and internal milestones are not inferred.
+            Submission status comes from Canvas. Team roles are not inferred; internal subtasks
+            and deadlines you add here stay in this browser.
           </p>
         </div>
       </div>
@@ -134,13 +189,14 @@ export function ProjectsPage() {
             headingRef={detailHeadingRef}
             project={selectedProject}
             course={state.courses.find((course) => course.id === selectedProject.courseId)}
-            members={selectedProject.memberIds
-              .map((memberId) => state.members.find((member) => member.id === memberId))
-              .filter((member): member is (typeof state.members)[number] => Boolean(member))}
+            members={selectedProjectMembers}
             tasks={getProjectTasks(state, selectedProject)}
             filter={filter}
+            currentMemberId={state.currentMemberId}
             onFilterChange={setFilter}
             onUpdateStatus={setEditingTask}
+            onAddSubtask={() => setSubtaskDialog({})}
+            onEditSubtask={(task) => setSubtaskDialog({ task })}
             now={now}
           />
         </>
@@ -152,6 +208,19 @@ export function ProjectsPage() {
               task={editingTask}
               onClose={() => setEditingTask(undefined)}
               onSave={saveReportedStatus}
+            />
+          ) : null}
+
+          {subtaskDialog ? (
+            <InternalSubtaskDialog
+              key={subtaskDialog.task?.id ?? `new-subtask-${selectedProject.id}`}
+              projectName={selectedProject.name}
+              members={selectedProjectMembers}
+              subtask={subtaskDialog.task}
+              creatorName={subtaskCreator}
+              onClose={() => setSubtaskDialog(null)}
+              onSave={saveSubtask}
+              onDelete={subtaskDialog.task ? deleteSubtask : undefined}
             />
           ) : null}
         </div>

@@ -87,4 +87,27 @@ describe("task form conversion", () => {
       status: "not-started",
     });
   });
+
+  it("defaults a new submission deadline to 23:59", () => {
+    const values = taskToFormValues();
+    values.title = "Final report";
+    values.courseId = "ee4213";
+    values.assessmentType = "assignment";
+    values.dateMeaning = "submission-deadline";
+    values.date = "2026-11-30";
+
+    expect(buildTaskDraft(values)).toMatchObject({ time: "23:59" });
+  });
+
+  it("keeps an explicitly chosen deadline time", () => {
+    const values = taskToFormValues();
+    values.title = "Final report";
+    values.courseId = "ee4213";
+    values.assessmentType = "assignment";
+    values.dateMeaning = "submission-deadline";
+    values.date = "2026-11-30";
+    values.time = "17:00";
+
+    expect(buildTaskDraft(values)).toMatchObject({ time: "17:00" });
+  });
 });

@@ -45,13 +45,14 @@ Keep PowerShell open and visit [http://127.0.0.1:3001](http://127.0.0.1:3001). T
 
 - The first sync runs when StudyFlow opens. Use **Sync Canvas** to refresh manually. StudyFlow also checks every five minutes while its page is visible.
 - Open **My Tasks**, **Deadlines**, or **Calendar** to find imported assignments. **Group Projects** shows group assignments and any team roster that Canvas exposes to your account. Dashboard shows weekly deadline counts.
-- Canvas supplies assignment dates and submission status. StudyFlow calculates initial priorities from dates. Manual priorities, effort estimates, and notes are retained in the current browser. Undated assignments appear in My Tasks, and deadlines are shown in Hong Kong time. The browser retains the last successful snapshot if a refresh fails.
+- In **Group Projects**, each Canvas assignment is listed under **Official from Canvas** with a read-only badge. Under **Team subtasks** you can add your own subtasks, set an internal deadline, assign a teammate, and record who added the item. Internal subtasks are stored only in the current browser, are never sent to Canvas, and survive Canvas syncs. Use **Edit** to change a deadline or delete a subtask, and **Update status** to record progress.
+- Canvas supplies assignment dates and submission status. StudyFlow calculates initial priorities from dates. Manual priorities, effort estimates, and notes are retained in the current browser. Undated assignments are hidden in My Tasks by default; turn on **Show tasks without a due date** to reveal them. In **My Tasks**, **Estimate missing times** fills blank estimates for the tasks currently shown without overwriting values you entered. New submission deadlines default to 23:59. Deadlines are shown in Hong Kong time. The browser retains the last successful snapshot if a refresh fails.
 
 ## 5. Import tasks from documents or photos
 
 1. Open **Import tasks** and choose up to six PDF, PNG, JPEG, or WebP files, up to 8 MB each.
 2. Select **Read files**. StudyFlow sends these files to DeepSeek. Flash reads images directly. For PDFs, DeepSeek OCR extracts the text and Flash identifies tasks and dates from that text.
-3. Review the proposed titles, dates, times, date types, and source excerpts. Correct uncertain fields and decide what to do with possible duplicates.
+3. Review the proposed titles, dates, times, date types, suggested effort estimates, and source excerpts. Correct uncertain fields and decide what to do with possible duplicates. Effort estimates are prefilled from each title and can be edited before import; deadline items without a time default to 23:59.
 4. Select **Import selected**. Confirmed items appear in **My Tasks** and **Calendar**, and StudyFlow assigns their initial priorities. Files are processed for extraction. The browser stores the confirmed task details and source excerpts.
 
 Try the fictional [Harbour Code Hackathon poster](docs/hackathon-import-test.png). The expected entries are:

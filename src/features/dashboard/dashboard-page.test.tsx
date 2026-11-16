@@ -36,6 +36,7 @@ describe("DashboardPage", () => {
       addTask: vi.fn(),
       importTasks: vi.fn(),
       updateTask: vi.fn(),
+      estimateTasks: vi.fn(),
       deleteTask: vi.fn(),
       canvasSync: { busy: false, message: "" },
       syncCanvas: vi.fn(),

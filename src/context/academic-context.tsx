@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { ACADEMIC_STORAGE_KEY, isAcademicState, parseStoredState, serializeState } from "@/lib/storage";
+import { estimateTaskMinutes } from "@/lib/estimate";
 import { STORAGE_VERSION, type AcademicState, type Task, type TaskDraft } from "@/lib/types";
 import { academicReducer } from "./academic-reducer";
 
@@ -40,6 +41,7 @@ interface AcademicContextValue {
   addTask: (draft: TaskDraft) => Task;
   importTasks: (drafts: TaskDraft[]) => void;
   updateTask: (id: string, changes: Partial<Task>, confirmation?: string) => void;
+  estimateTasks: (tasks: Task[]) => void;
   deleteTask: (id: string) => void;
   canvasSync: { busy: boolean; message: string; syncedAt?: string };
   syncCanvas: () => Promise<void>;
@@ -154,6 +156,15 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
     setToastMessage(confirmation ?? "Task changes saved.");
   }, []);
 
+  const estimateTasks = useCallback((tasks: Task[]) => {
+    const entries = tasks.map((task) => ({ id: task.id, minutes: estimateTaskMinutes(task) }));
+    if (entries.length === 0) return;
+    dispatch({ type: "tasks/estimate", entries, changedAt: new Date().toISOString() });
+    setToastMessage(
+      `Filled in ${entries.length} ${entries.length === 1 ? "estimate" : "estimates"}. Adjust any value that needs more time.`,
+    );
+  }, []);
+
   const deleteTask = useCallback((id: string) => {
     dispatch({ type: "task/delete", id });
     setToastMessage("Task deleted.");
@@ -172,6 +183,7 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
       addTask,
       importTasks,
       updateTask,
+      estimateTasks,
       deleteTask,
       canvasSync,
       syncCanvas,
@@ -189,6 +201,7 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
       addTask,
       importTasks,
       updateTask,
+      estimateTasks,
       deleteTask,
       canvasSync,
       syncCanvas,

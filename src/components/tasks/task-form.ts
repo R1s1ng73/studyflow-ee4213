@@ -1,5 +1,6 @@
 import type { Task, TaskDraft } from "@/lib/types";
 import type { TaskFormValues } from "@/lib/validation";
+import { DEFAULT_DEADLINE_TIME } from "@/lib/date";
 
 export function taskToFormValues(task?: Task): TaskFormValues {
   return {
@@ -24,6 +25,10 @@ function optionalText(value: string): string | undefined {
 
 export function buildTaskDraft(values: TaskFormValues, existing?: Task): TaskDraft {
   const usesInternalDueDate = Boolean(existing?.projectId || existing?.internalDueDate);
+  // A new submission deadline defaults to 23:59; edits still honour a cleared time.
+  const newTaskTime =
+    values.time ||
+    (values.dateMeaning === "submission-deadline" ? DEFAULT_DEADLINE_TIME : undefined);
   const optionalFields = existing
     ? {
         time: values.time || undefined,
@@ -33,7 +38,7 @@ export function buildTaskDraft(values: TaskFormValues, existing?: Task): TaskDra
         notes: optionalText(values.notes),
       }
     : {
-        ...(values.time ? { time: values.time } : {}),
+        ...(newTaskTime ? { time: newTaskTime } : {}),
         ...(values.estimatedMinutes ? { estimatedMinutes: Number(values.estimatedMinutes) } : {}),
         ...(values.gradeWeight ? { gradeWeight: Number(values.gradeWeight) } : {}),
         ...(optionalText(values.topicsCovered) ? { topicsCovered: optionalText(values.topicsCovered) } : {}),

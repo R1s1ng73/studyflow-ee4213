@@ -2,6 +2,9 @@ import { format } from "date-fns";
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/** Deadlines without an explicit time default to the end of the day. */
+export const DEFAULT_DEADLINE_TIME = "23:59";
+
 export function parseDateOnly(value: string): Date {
   const match = DATE_ONLY.exec(value);
   if (!match) {

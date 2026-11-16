@@ -43,6 +43,7 @@ export interface Task {
   canvasUrl?: string;
   canvasPriorityOverride?: boolean;
   importSource?: { filename: string; excerpt: string };
+  createdBy?: string;
 }
 
 export interface GroupProject {

@@ -10,7 +10,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useAcademic } from "@/context/academic-context";
-import { parseDateOnly } from "@/lib/date";
+import { DEFAULT_DEADLINE_TIME, parseDateOnly } from "@/lib/date";
 import type { Task } from "@/lib/types";
 import {
   validateTaskForm,
@@ -312,9 +312,13 @@ function TaskModalContent({ existing }: { existing?: Task }) {
                       disabled={fromCanvas}
                       className={selectClass("dateMeaning")}
                       value={values.dateMeaning}
-                      onChange={(event) =>
-                        updateValue("dateMeaning", event.target.value as TaskFormValues["dateMeaning"])
-                      }
+                      onChange={(event) => {
+                        const dateMeaning = event.target.value as TaskFormValues["dateMeaning"];
+                        updateValue("dateMeaning", dateMeaning);
+                        if (dateMeaning === "submission-deadline" && !values.time) {
+                          updateValue("time", DEFAULT_DEADLINE_TIME);
+                        }
+                      }}
                       aria-describedby={errors.dateMeaning ? errorId("dateMeaning", idPrefix) : undefined}
                       aria-invalid={Boolean(errors.dateMeaning)}
                     >

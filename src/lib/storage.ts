@@ -107,7 +107,7 @@ function isTask(value: unknown): value is Task {
     isOneOf(value.priority, PRIORITIES) &&
     isOptionalNumberInRange(value, "estimatedMinutes", 1, 1440, true) &&
     isOptionalNumberInRange(value, "gradeWeight", 0, 100) &&
-    ["topicsCovered", "notes", "projectId", "assignedTo", "blockerReason"].every((key) =>
+    ["topicsCovered", "notes", "projectId", "assignedTo", "blockerReason", "createdBy"].every((key) =>
       hasOptionalString(value, key),
     ) &&
     isOneOf(value.status, TASK_STATUSES) &&

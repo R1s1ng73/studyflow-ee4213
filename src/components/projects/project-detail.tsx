@@ -5,6 +5,7 @@ import {
   IconClock,
   IconEdit,
   IconFilter,
+  IconPlus,
 } from "@tabler/icons-react";
 import { format } from "date-fns";
 import type { Ref } from "react";
@@ -12,7 +13,12 @@ import { parseDateOnly } from "@/lib/date";
 import { getDemoProjectDetails } from "@/lib/demo-project-details";
 import { isTaskAttentionNeeded, isTaskOverdue } from "@/lib/selectors";
 import type { Course, GroupProject, Task, TeamMember } from "@/lib/types";
-import { filterProjectTasks, getTaskRecordedAt, type ProjectTaskFilter } from "./project-utils";
+import {
+  filterProjectTasks,
+  getTaskRecordedAt,
+  splitProjectTasks,
+  type ProjectTaskFilter,
+} from "./project-utils";
 
 interface ProjectDetailProps {
   headingRef?: Ref<HTMLHeadingElement>;
@@ -21,8 +27,11 @@ interface ProjectDetailProps {
   members: TeamMember[];
   tasks: Task[];
   filter: ProjectTaskFilter;
+  currentMemberId: string;
   onFilterChange: (filter: ProjectTaskFilter) => void;
   onUpdateStatus: (task: Task) => void;
+  onAddSubtask: () => void;
+  onEditSubtask: (task: Task) => void;
   now: Date;
 }
 
@@ -44,13 +53,18 @@ export function ProjectDetail({
   members,
   tasks,
   filter,
+  currentMemberId,
   onFilterChange,
   onUpdateStatus,
+  onAddSubtask,
+  onEditSubtask,
   now,
 }: ProjectDetailProps) {
   const details = getDemoProjectDetails(project.id);
-  const visibleTasks = filterProjectTasks(tasks, filter, now);
+  const { official: officialTasks, internal: internalTasks } = splitProjectTasks(tasks);
+  const visibleTasks = filterProjectTasks(internalTasks, filter, now);
   const membersById = new Map(members.map((member) => [member.id, member]));
+  const attentionCount = filterProjectTasks(internalTasks, "attention", now).length;
   const presentedTasks = visibleTasks.map((task) => {
     const needsAttention = isTaskAttentionNeeded(task, now);
     const overdue = isTaskOverdue(task, now);
@@ -58,6 +72,9 @@ export function ProjectDetail({
       task,
       status: STATUS_STYLES[task.status],
       owner: task.assignedTo ? membersById.get(task.assignedTo) : undefined,
+      creator: task.createdBy
+        ? (membersById.get(task.createdBy)?.displayName ?? (task.createdBy === currentMemberId ? "You" : "A teammate"))
+        : undefined,
       needsAttention,
       recordedAt: getTaskRecordedAt(task),
       attentionReason:
@@ -126,37 +143,88 @@ export function ProjectDetail({
         </div>
       </div>
 
+      {officialTasks.length > 0 ? (
+        <div className="card-body border-bottom" aria-labelledby="official-canvas-heading">
+          <h3 className="h4 mb-1" id="official-canvas-heading">
+            Official from Canvas
+          </h3>
+          <p className="text-secondary small mb-3">
+            Dates and submission status come from Canvas. They are read-only here.
+          </p>
+          <ul className="list-group list-group-flush">
+            {officialTasks.map((task) => (
+              <li className="list-group-item px-0" key={task.id}>
+                <div className="d-flex flex-column flex-sm-row justify-content-between gap-2">
+                  <div>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <span className="badge bg-blue-lt">Official · Canvas</span>
+                      <span className="fw-semibold">{task.title}</span>
+                    </div>
+                    <div className="small text-secondary mt-1">
+                      <IconCalendar className="icon icon-sm me-1" aria-hidden="true" />
+                      Canvas deadline:{" "}
+                      {task.date
+                        ? `${format(parseDateOnly(task.date), "d MMM yyyy")}${task.time ? `, ${task.time}` : ""}`
+                        : "No due date"}
+                    </div>
+                  </div>
+                  <div className="text-sm-end">
+                    <span className={`badge ${task.status === "done" ? "bg-green-lt" : "bg-secondary-lt"}`}>
+                      {task.status === "done" ? "Submitted" : "Not submitted"}
+                    </span>
+                    {task.canvasUrl ? (
+                      <div className="small mt-1">
+                        <a href={task.canvasUrl} target="_blank" rel="noreferrer">
+                          Open in Canvas
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="card-body border-bottom py-3">
-        <div className="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+        <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
           <div>
-            <h3 className="h4 mb-1">{project.canvasUrl ? "Group submission" : `Project subtasks (${tasks.length})`}</h3>
+            <h3 className="h4 mb-1">
+              Team subtasks <span className="text-secondary fw-normal">({internalTasks.length})</span>
+            </h3>
             <p className="text-secondary small mb-0">
-              {project.canvasUrl
-                ? "This is the submission status available to your Canvas account."
-                : "The assigned teammate is the person to follow up with. Each subtask has its own team due date."}
+              Internal deadlines you add here stay in this browser. They are never sent to Canvas or your
+              teammates.
             </p>
           </div>
-          <div className="btn-group flex-shrink-0" role="group" aria-label="Filter group tasks">
-            <button
-              type="button"
-              className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-primary"}`}
-              aria-pressed={filter === "all"}
-              onClick={() => onFilterChange("all")}
-            >
-              All <span className="badge bg-white text-primary ms-1">{tasks.length}</span>
+          <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-shrink-0">
+            <button type="button" className="btn btn-primary" onClick={onAddSubtask}>
+              <IconPlus className="icon me-1" aria-hidden="true" />
+              Add subtask
             </button>
-            <button
-              type="button"
-              className={`btn ${filter === "attention" ? "btn-primary" : "btn-outline-primary"}`}
-              aria-pressed={filter === "attention"}
-              onClick={() => onFilterChange("attention")}
-            >
-              <IconFilter className="icon me-1" aria-hidden="true" />
-              Needs attention
-              <span className="badge bg-white text-primary ms-1">
-                {filterProjectTasks(tasks, "attention", now).length}
-              </span>
-            </button>
+            {internalTasks.length > 0 ? (
+              <div className="btn-group" role="group" aria-label="Filter group tasks">
+                <button
+                  type="button"
+                  className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-primary"}`}
+                  aria-pressed={filter === "all"}
+                  onClick={() => onFilterChange("all")}
+                >
+                  All <span className="badge bg-white text-primary ms-1">{internalTasks.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${filter === "attention" ? "btn-primary" : "btn-outline-primary"}`}
+                  aria-pressed={filter === "attention"}
+                  onClick={() => onFilterChange("attention")}
+                >
+                  <IconFilter className="icon me-1" aria-hidden="true" />
+                  Needs attention
+                  <span className="badge bg-white text-primary ms-1">{attentionCount}</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -166,18 +234,24 @@ export function ProjectDetail({
           <div className="empty-icon">
             <IconAlertTriangle className="icon" aria-hidden="true" />
           </div>
-          <p className="empty-title">{filter === "attention" ? "No tasks need attention" : "No project subtasks recorded"}</p>
+          <p className="empty-title">
+            {filter === "attention" ? "No tasks need attention" : "No internal subtasks yet"}
+          </p>
           {filter === "attention" ? (
-            <>
-              <p className="empty-subtitle text-secondary">
-                Nothing is blocked, overdue, or missing a recent status report.
-              </p>
-              <div className="empty-action">
-                <button className="btn btn-outline-primary" type="button" onClick={() => onFilterChange("all")}>
-                  Show all tasks
-                </button>
-              </div>
-            </>
+            <p className="empty-subtitle text-secondary">
+              Nothing is blocked, overdue, or missing a recent status report.
+            </p>
+          ) : (
+            <p className="empty-subtitle text-secondary">
+              Add your own subtasks and internal deadlines above. The official Canvas dates stay unchanged.
+            </p>
+          )}
+          {filter === "attention" ? (
+            <div className="empty-action">
+              <button className="btn btn-outline-primary" type="button" onClick={() => onFilterChange("all")}>
+                Show all tasks
+              </button>
+            </div>
           ) : null}
         </div>
       ) : (
@@ -187,7 +261,7 @@ export function ProjectDetail({
             role="list"
             aria-label={`Mobile tasks for ${project.name}`}
           >
-            {presentedTasks.map(({ task, status, owner, needsAttention, recordedAt, attentionReason }) => (
+            {presentedTasks.map(({ task, status, owner, creator, needsAttention, recordedAt, attentionReason }) => (
               <article
                 className="list-group-item p-3"
                 key={task.id}
@@ -202,6 +276,10 @@ export function ProjectDetail({
                     <h4 className="h3 mb-0" id={`mobile-project-task-${task.id}`}>
                       {task.title}
                     </h4>
+                    <div className="d-flex align-items-center gap-2 flex-wrap mt-2">
+                      <span className="badge bg-teal-lt">Internal</span>
+                      {creator ? <span className="small text-secondary">Added by {creator}</span> : null}
+                    </div>
                   </div>
                   <div className="d-flex flex-column align-items-end gap-1 flex-shrink-0">
                     <span className={`badge ${status.className}`}>{status.label}</span>
@@ -218,7 +296,7 @@ export function ProjectDetail({
                     </dd>
                   </div>
                   <div className="col-6 col-sm-4">
-                    <dt className="text-secondary fw-normal mb-1">Subtask due date</dt>
+                    <dt className="text-secondary fw-normal mb-1">Internal deadline</dt>
                     <dd className="mb-0 fw-medium">
                       <IconCalendar className="icon icon-sm me-1" aria-hidden="true" />
                       {task.internalDueDate
@@ -247,15 +325,26 @@ export function ProjectDetail({
                   </div>
                 ) : null}
 
-                {!task.canvasUrl ? <button
-                  type="button"
-                  className="btn btn-outline-primary w-100"
-                  onClick={() => onUpdateStatus(task)}
-                  aria-label={`Update reported status for ${task.title}`}
-                >
-                  <IconEdit className="icon me-1" aria-hidden="true" />
-                  Update reported status
-                </button> : null}
+                <div className="d-flex flex-column flex-sm-row gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary flex-grow-1"
+                    onClick={() => onEditSubtask(task)}
+                    aria-label={`Edit internal subtask ${task.title}`}
+                  >
+                    <IconEdit className="icon me-1" aria-hidden="true" />
+                    Edit deadline
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary flex-grow-1"
+                    onClick={() => onUpdateStatus(task)}
+                    aria-label={`Update reported status for ${task.title}`}
+                  >
+                    <IconEdit className="icon me-1" aria-hidden="true" />
+                    Update reported status
+                  </button>
+                </div>
               </article>
             ))}
           </div>
@@ -267,17 +356,21 @@ export function ProjectDetail({
               <tr>
                 <th scope="col">Subtask</th>
                 <th scope="col">Assigned teammate</th>
-                <th scope="col">Subtask due date</th>
+                <th scope="col">Internal deadline</th>
                 <th scope="col">Reported status</th>
                 <th scope="col">Status last updated</th>
                 <th scope="col" className="w-1">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {presentedTasks.map(({ task, status, owner, needsAttention, recordedAt }) => (
+              {presentedTasks.map(({ task, status, owner, creator, needsAttention, recordedAt }) => (
                   <tr key={task.id}>
                     <td>
-                      <div className="fw-semibold">{task.title}</div>
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <span className="badge bg-teal-lt">Internal</span>
+                        <span className="fw-semibold">{task.title}</span>
+                      </div>
+                      {creator ? <div className="small text-secondary mt-1">Added by {creator}</div> : null}
                       {task.blockerReason ? (
                         <div className="small text-danger mt-1">
                           <IconAlertTriangle className="icon me-1" aria-hidden="true" />
@@ -307,17 +400,25 @@ export function ProjectDetail({
                       {formatRecordedAt(recordedAt)}
                     </td>
                     <td>
-                      {task.canvasUrl ? (
-                        <a href={task.canvasUrl} target="_blank" rel="noreferrer">Canvas</a>
-                      ) : <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary text-nowrap"
-                        onClick={() => onUpdateStatus(task)}
-                        aria-label={`Update reported status for ${task.title}`}
-                      >
-                        <IconEdit className="icon me-1" aria-hidden="true" />
-                        Update
-                      </button>}
+                      <div className="btn-list flex-nowrap">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary text-nowrap"
+                          onClick={() => onEditSubtask(task)}
+                          aria-label={`Edit internal subtask ${task.title}`}
+                        >
+                          <IconEdit className="icon me-1" aria-hidden="true" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary text-nowrap"
+                          onClick={() => onUpdateStatus(task)}
+                          aria-label={`Update reported status for ${task.title}`}
+                        >
+                          Update status
+                        </button>
+                      </div>
                     </td>
                   </tr>
               ))}

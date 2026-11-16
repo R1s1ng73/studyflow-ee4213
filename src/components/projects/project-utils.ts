@@ -3,6 +3,20 @@ import type { AcademicState, GroupProject, Task } from "@/lib/types";
 
 export type ProjectTaskFilter = "all" | "attention";
 
+export interface ProjectSubtaskGroups {
+  /** Tasks created by Canvas; dates and submission status are read-only. */
+  official: Task[];
+  /** Subtasks and deadlines added in this browser. */
+  internal: Task[];
+}
+
+export function splitProjectTasks(tasks: Task[]): ProjectSubtaskGroups {
+  return {
+    official: tasks.filter((task) => Boolean(task.canvasUrl)),
+    internal: tasks.filter((task) => !task.canvasUrl),
+  };
+}
+
 export function getProjectTasks(state: AcademicState, project: GroupProject): Task[] {
   const tasksById = new Map(state.tasks.map((task) => [task.id, task]));
   return project.taskIds

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AcademicProvider } from "@/context/academic-context";
 import { createDemoData } from "@/lib/demo-data";
@@ -65,5 +66,28 @@ describe("ProjectsPage", () => {
         Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
       }
     }
+  });
+
+  it("adds an internal subtask with a deadline and creator to the selected project", async () => {
+    const user = userEvent.setup();
+    render(
+      <AcademicProvider>
+        <ProjectsPage />
+      </AcademicProvider>,
+    );
+
+    await screen.findByRole("heading", { level: 2, name: "Student Academic Dashboard" });
+    await user.click(screen.getByRole("button", { name: "Add subtask" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Add internal subtask" });
+    await user.type(within(dialog).getByLabelText("Subtask title"), "Draft the questionnaire");
+    fireEvent.change(within(dialog).getByLabelText("Internal deadline"), { target: { value: "2026-12-05" } });
+    await user.click(within(dialog).getByRole("button", { name: "Add subtask" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Tasks for Student Academic Dashboard" });
+    expect(within(table).getByText("Draft the questionnaire")).toBeVisible();
+    expect(within(table).getByText("Added by Alex Chen")).toBeVisible();
+    expect(within(table).getByText("5 Dec 2026")).toBeVisible();
   });
 });

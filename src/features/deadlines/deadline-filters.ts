@@ -18,10 +18,10 @@ export function getDeadlineTasks(
       if (task.status === "done") return false;
       return filter === "overdue" ? getTaskDate(task) < today : getTaskDate(task) >= today;
     })
-    .toSorted(
-      (left, right) =>
-        getTaskDate(left).localeCompare(getTaskDate(right)) ||
-        left.title.localeCompare(right.title) ||
-        left.id.localeCompare(right.id),
-    );
+    .toSorted((left, right) => {
+      const dateOrder = getTaskDate(left).localeCompare(getTaskDate(right));
+      // Completed deadlines read best newest-first: closest to now, then further into the past.
+      if (dateOrder !== 0) return filter === "completed" ? -dateOrder : dateOrder;
+      return left.title.localeCompare(right.title) || left.id.localeCompare(right.id);
+    });
 }

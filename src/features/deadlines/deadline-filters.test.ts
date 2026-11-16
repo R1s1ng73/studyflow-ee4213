@@ -24,9 +24,22 @@ describe("deadline filters", () => {
     ]);
   });
 
-  it("preserves completed work and sorts it chronologically", () => {
+  it("preserves completed work and sorts it from closest to now into the past", () => {
+    const base = createDemoData(now);
+    const template = base.tasks[0]!;
+    const state = {
+      ...base,
+      tasks: [
+        ...base.tasks,
+        { ...template, id: "done-recent", title: "Recent completed work", date: "2026-11-08", status: "done" as const },
+        { ...template, id: "done-old", title: "Old completed work", date: "2026-09-01", status: "done" as const },
+      ],
+    };
+
     expect(getDeadlineTasks(state, "completed", now).map((task) => task.id)).toEqual([
+      "done-recent",
       "task-complete",
+      "done-old",
     ]);
   });
 });

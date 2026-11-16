@@ -5,6 +5,8 @@ import { IconFileUpload } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAcademic } from "@/context/academic-context";
+import { DEFAULT_DEADLINE_TIME } from "@/lib/date";
+import { estimateTaskMinutes } from "@/lib/estimate";
 import {
   EXTERNAL_COURSE, IMPORT_DATE_LABELS, MAX_IMPORT_BYTES, MAX_IMPORT_FILES, findImportMatches,
   guessImportCourse, priorityForDate, sameImportSlot, type ImportCandidate,
@@ -16,7 +18,16 @@ interface ReviewItem extends ImportCandidate {
   filename: string;
   selected: boolean;
   courseId: string;
+  estimatedMinutes: string;
 }
+
+function estimateIsValid(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 1440;
+}
+
 
 async function readFile(file: File) {
   const body = new FormData();
@@ -59,9 +70,12 @@ export function TaskImportPage() {
         if (!result.value.length) failures.push(`${filename} · No tasks or events found.`);
         for (const [offset, item] of result.value.entries()) {
           const courseId = guessImportCourse(item.courseHint, state.courses);
+          const time = item.time || (item.dateMeaning === "submission-deadline" ? DEFAULT_DEADLINE_TIME : "");
+          const estimatedMinutes = estimateTaskMinutes({ title: item.title, assessmentType: "other" }).toString();
+          const candidate = { ...item, time, courseId };
           const selected = !findImportMatches(item, state.tasks).length &&
-            !next.some((existing) => sameImportSlot(existing, { ...item, courseId }));
-          next.push({ ...item, id: `${index}-${offset}`, filename, courseId, selected });
+            !next.some((existing) => sameImportSlot(existing, candidate));
+          next.push({ ...candidate, id: `${index}-${offset}`, filename, estimatedMinutes, selected });
         }
       }
       setItems(next);
@@ -83,12 +97,18 @@ export function TaskImportPage() {
       setMessage("Enter a title and date for each selected item.");
       return;
     }
+    if (chosen.some((item) => !estimateIsValid(item.estimatedMinutes))) {
+      setMessage("Enter an estimate between 1 and 1,440 minutes, or leave it blank.");
+      return;
+    }
     const batch: TaskDraft[] = [];
     for (const item of chosen) {
+      const estimatedMinutes = item.estimatedMinutes.trim() ? Number(item.estimatedMinutes) : undefined;
       const draft: TaskDraft = {
         title: item.title.trim(), courseId: item.courseId, date: item.date, time: item.time || undefined,
         dateMeaning: item.dateMeaning, assessmentType: "other", status: "not-started",
         priority: priorityForDate(item.date, today),
+        ...(estimatedMinutes ? { estimatedMinutes } : {}),
         importSource: { filename: item.filename, excerpt: item.excerpt },
       };
       if (![...state.tasks, ...batch].some((existing) => sameImportSlot(existing, draft))) batch.push(draft);
@@ -141,7 +161,7 @@ export function TaskImportPage() {
         {items.length ? (
           <form onSubmit={save}>
             <h2 className="h3">Review extracted items</h2>
-            <p className="text-secondary">Check the dates and select the items to add. Possible duplicates start unchecked.</p>
+            <p className="text-secondary">Check the dates and estimates, then select the items to add. Possible duplicates start unchecked.</p>
             {items.map((item) => {
               const matches = findImportMatches(item, state.tasks);
               return (
@@ -170,12 +190,28 @@ export function TaskImportPage() {
                         <input className="form-control" type="time" value={item.time}
                           onChange={(event) => update(item.id, { time: event.target.value })} />
                       </label>
-                      <label className="col-12 col-md-4"><span className="form-label">Date meaning</span>
+                      <label className="col-12 col-md-3"><span className="form-label">Date meaning</span>
                         <select className="form-select" value={item.dateMeaning}
-                          onChange={(event) => update(item.id, { dateMeaning: event.target.value as DateMeaning })}>
+                          onChange={(event) => {
+                            const dateMeaning = event.target.value as DateMeaning;
+                            update(item.id, {
+                              dateMeaning,
+                              ...(dateMeaning === "submission-deadline" && !item.time
+                                ? { time: DEFAULT_DEADLINE_TIME }
+                                : {}),
+                            });
+                          }}>
                           {Object.entries(IMPORT_DATE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </select>
                       </label>
+                      <div className="col-6 col-md-3">
+                        <label className="form-label" htmlFor={`estimate-${item.id}`}>Estimate (minutes)</label>
+                        <input className="form-control" id={`estimate-${item.id}`} type="number" min="1" max="1440" step="1"
+                          inputMode="numeric" value={item.estimatedMinutes}
+                          aria-describedby={`estimate-help-${item.id}`}
+                          onChange={(event) => update(item.id, { estimatedMinutes: event.target.value })} />
+                        <span className="form-text" id={`estimate-help-${item.id}`}>Suggested from the title. Adjust if needed.</span>
+                      </div>
                     </div>
                     {item.courseHint && item.courseId === EXTERNAL_COURSE.id ? <p className="small text-secondary mt-2 mb-0">Course mentioned in file · {item.courseHint}</p> : null}
                     <p className="small text-secondary text-break mt-3 mb-0"><strong>Source</strong> · {item.filename}{item.excerpt ? ` · “${item.excerpt}”` : ""}</p>
