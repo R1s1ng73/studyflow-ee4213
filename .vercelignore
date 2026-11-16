@@ -1,0 +1,9 @@
+.omx/
+.playwright-cli/
+output/
+coverage/
+docs/
+AGENTS.md
+*.test.ts
+*.test.tsx
+*.tsbuildinfo
