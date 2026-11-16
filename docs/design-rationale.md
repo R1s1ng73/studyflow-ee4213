@@ -17,7 +17,7 @@ A fixed desktop sidebar preserves orientation across five destinations; mobile u
 
 Optional fields are collapsed because course, title, assessment type, and date are sufficient for quick capture. The disclosure keeps richer metadata available without making every save feel like a long form.
 
-Estimates remain user-entered and editable because the prototype has no evidence-based estimation model. Missing estimates are visible and excluded from Short Tasks results rather than silently guessed.
+Estimates are suggestions, not authoritative values. Imports are sized by reading the uploaded document, and My Tasks sizes the tasks currently shown from their titles alone, both through DeepSeek; if that service is unavailable each falls back to a local title heuristic. Because a model can be wrong, every value stays editable, saved values are never overwritten, and missing estimates remain visible and excluded from Short Tasks results rather than silently guessed.
 
 Group statuses are described as recorded reports because local demo updates do not prove live teammate activity. The 48-hour rule highlights stale information, not poor performance.
 

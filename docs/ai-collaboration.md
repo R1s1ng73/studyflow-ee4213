@@ -11,6 +11,7 @@ Codex assisted with repository setup, architecture, Tabler integration, TypeScri
 - Local date-only strings to avoid timezone day shifts.
 - React ownership of modal, drawer, filters, and toast interactions.
 - Pure selectors for metrics, priority ordering, attention, progress, and calendar events.
+- DeepSeek sizes imported tasks from the uploaded document and My Tasks tasks from their titles only; both stay editable and fall back to a local heuristic.
 
 ## Modified or rejected suggestions
 
@@ -20,4 +21,4 @@ Codex assisted with repository setup, architecture, Tabler integration, TypeScri
 
 ## Limitations and verification
 
-AI output is treated as implementation assistance, not evidence of user validation. Automated checks and browser workflows are recorded in `testing-checklist.md`. No usability participants, feedback, deployment, or human verification are fabricated.
+AI output is treated as implementation assistance, not evidence of user validation. Automated checks and browser workflows are recorded in `testing-checklist.md`. The runtime effort estimates are convenience suggestions rather than validated workload measurements and remain editable. No usability participants, feedback, deployment, or human verification are fabricated.

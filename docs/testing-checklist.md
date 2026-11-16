@@ -1,28 +1,34 @@
 # Testing Checklist
 
-This file records only checks that were actually executed on 11 November 2026.
+This file records only checks that were actually executed. The initial pass was 11 November 2026 (21 files, 82 tests); the newest version was re-checked on 17 November 2026 against commit `7dd6bcb`.
 
 ## Automated behavior covered
 
 - Date-only parsing and formatting.
-- High Impact ordering and Short Tasks filtering.
+- High Impact ordering and Short Tasks filtering, including hiding tasks without a due date by default.
 - Dashboard metrics and project progress.
 - Blocked, overdue, and stale attention rules.
 - Calendar event uniqueness and official project deadlines.
-- Versioned storage parsing and malformed-data recovery.
-- Reducer add, update, completion reversal, status timestamp, delete, and project-reference cleanup.
-- Task form required fields and optional numeric/time ranges.
-- Provider hydration and post-hydration persistence.
+- Versioned storage parsing, malformed-data recovery, and the optional `createdBy` field.
+- Reducer add, update, completion reversal, status timestamp, delete, project-reference cleanup, and bulk estimate fills that never overwrite saved values.
+- Task form required fields, optional numeric/time ranges, and the 23:59 submission-deadline default.
+- Provider hydration, post-hydration persistence, and the local fallback when the AI estimate endpoint fails.
+- Group-project official/internal split and internal-subtask behaviour across Canvas sync.
+- Completed-deadline ordering (newest first).
+- Task-import candidate normalization, including document-based `estimatedMinutes`.
+- AI estimate route: title-only payload, minutes normalization (5–1440, nearest five), and error handling.
 
-## Command results
+## Command results — 17 November 2026
 
 | Check | Result |
 | --- | --- |
 | `npm run lint` | Passed with zero warnings or errors |
 | `npm run typecheck` | Passed |
-| `npm test` | 21 files, 82 tests passed |
-| `npm run build` | Passed; all five application routes and the icon were statically generated |
+| `npm test` | 28 files, 118 tests passed |
+| `npm run build` | Passed; the six application pages, the icon, and the three API routes (`/api/canvas/sync`, `/api/tasks/extract`, `/api/tasks/estimate`) built successfully |
 | `npm audit --audit-level=moderate` | 0 vulnerabilities |
+
+The 11 November baseline recorded 21 files and 82 tests.
 
 ## Browser workflows executed
 
@@ -93,6 +99,43 @@ These are expert QA results collected before participant usability testing.
 - Verified Calendar next-month and Today navigation, event editing, and the same changed deadline in Deadlines.
 - Browser console after the full navigation and workflow pass: zero errors and zero warnings.
 - Refinement visual verdict: 97/100. Missing-estimate recovery follow-up: 95/100.
+
+## Newest version check — 17 November 2026
+
+Executed in the local application against the live Canvas workspace and the local DeepSeek key at the default desktop viewport. Temporary test records were removed and the original localStorage snapshot was restored after each run.
+
+### Group Projects — official vs internal work
+
+- Opened a real Canvas group assignment and confirmed the read-only **Official from Canvas** block.
+- Added an internal subtask with an internal deadline, owner, and notes; confirmed the **Internal** badge and **Added by \<name\>** attribution.
+- Reloaded and ran a Canvas sync; confirmed the internal subtask and its deadline survived and the project kept the reference.
+- Edited the internal deadline, then deleted the subtask after confirmation.
+- Confirmed the delete removed the task and left no dangling project task reference.
+
+### Deadlines
+
+- Opened Completed and confirmed the order ran from the closest date to now backwards (12 Nov 2026 → 5 Nov → 2 Nov … → 27 May 2026).
+
+### My Tasks
+
+- Confirmed 15 unfinished tasks without a due date were hidden from High Impact by default, and that the **Show tasks without a due date (15)** switch revealed them.
+- Ran **Estimate missing times (15)**: the control showed **Estimating…**, finished in about one second, and filled all 15 blanks with values from the AI endpoint (for example 20–25 minute safety quizzes and a 60 minute in-class test).
+- Confirmed the toast reported the AI path (`AI filled in 15 estimates from task titles`); automated tests cover that saved estimates are never overwritten.
+- Called `/api/tasks/estimate` directly with three titles and received `[180, 30, 45]`, confirming only titles are sent.
+
+### Import
+
+- Read the Harbour Code Hackathon poster through the real DeepSeek pipeline.
+- Confirmed each item carried a document-based estimate (for example 30, 120, 600 in one review) with the **Estimated from the document** hint, editable before import.
+- Cleared a deadline item's time and switched its date meaning to Deadline; the field filled with 23:59, and an estimate that was not a multiple of five passed native validation.
+
+### Task capture
+
+- Opened Add task, chose Submission deadline, and confirmed the time field defaulted to 23:59.
+
+Result: passed. The workspace was restored to its original state afterwards (74 tasks, 4 existing estimates, 15 undated tasks).
+
+The responsive viewport checks recorded on 11 November were not repeated for this version; the new sections reuse the existing table and mobile-card patterns already covered there and by automated tests.
 
 ## Known limitations
 

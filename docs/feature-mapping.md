@@ -6,11 +6,11 @@ The global Add Task action opens the same validated capture form from Dashboard,
 
 ## Subgroup 2 — Group Progress
 
-Group Projects derives completion, blocked counts, and attention states from shared task records. Details show owners, internal deadlines, reported status, blocker notes, and update timestamps. Status updates change the shared task rather than a project-only copy.
+Group Projects separates read-only Canvas work from browser-only internal subtasks you can add, edit, or delete, derived alongside completion, blocked counts, and attention states from shared task records. Details show owners, internal deadlines, creator, reported status, blocker notes, and update timestamps. Status updates change the shared task rather than a project-only copy.
 
 ## Subgroup 3 — Task Prioritisation
 
-My Tasks combines personal work with group tasks assigned to the demo student. High Impact respects manual priority before deadline. Short Tasks uses user-entered estimates and excludes missing estimates from duration matches without inventing values.
+My Tasks combines personal work with group tasks assigned to the demo student. High Impact respects manual priority before deadline and hides tasks without a due date unless you reveal them. Short Tasks matches on estimates, which can come from the AI title-based suggestion or manual entry, and excludes missing estimates without inventing values.
 
 ## Subgroup 4 — Unified Calendar
 
