@@ -23,7 +23,7 @@ describe("TaskImportPage estimate prefill", () => {
     localStorage.setItem(ACADEMIC_STORAGE_KEY, serializeState(createDemoData()));
   });
 
-  it("suggests an estimate and a 23:59 deadline before importing", async () => {
+  it("uses the document estimate and a 23:59 deadline before importing", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -37,6 +37,7 @@ describe("TaskImportPage estimate prefill", () => {
             time: "",
             dateMeaning: "submission-deadline",
             excerpt: "Submit the final report.",
+            estimatedMinutes: 90,
             reviewReason: "",
           },
         ],
@@ -56,7 +57,7 @@ describe("TaskImportPage estimate prefill", () => {
     await user.click(screen.getByRole("button", { name: "Read files" }));
 
     expect(await screen.findByLabelText("Time (Hong Kong)")).toHaveValue("23:59");
-    expect(screen.getByLabelText("Estimate (minutes)")).toHaveValue(180);
+    expect(screen.getByLabelText("Estimate (minutes)")).toHaveValue(90);
 
     const importButton = screen.getByRole("button", { name: "Import selected (1)" });
     await user.click(importButton);
@@ -65,7 +66,7 @@ describe("TaskImportPage estimate prefill", () => {
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY)!);
       const imported = stored.tasks.find((task: { title: string }) => task.title === "Final report");
-      expect(imported).toMatchObject({ time: "23:59", estimatedMinutes: 180 });
+      expect(imported).toMatchObject({ time: "23:59", estimatedMinutes: 90 });
     });
   });
 

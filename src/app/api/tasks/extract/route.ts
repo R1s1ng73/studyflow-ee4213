@@ -13,9 +13,11 @@ const instructions = [
   "Never guess missing years, dates or times. Resolve relative dates only if there is a clear date anchor in the file.",
   "For an unclear date, leave date empty and explain what must be confirmed in reviewReason. Leave time empty if unspecified.",
   "For each item, copy the short source text that supports it as excerpt. Use empty reviewReason when no special review is needed.",
+  "Estimate how many focused minutes a typical undergraduate needs in total for each item, using evidence in the file: deliverable length, number of parts or questions, rubric detail, marks or weighting, and any stated preparation. For a scheduled event, estimate the time to block out, such as its stated duration.",
+  "estimatedMinutes must be a whole number of minutes from 5 to 1440, rounded to the nearest five. Use 45 only when the file gives no usable signal. Do not reuse the example value.",
   "Skip incidental dates, venues and background information that don't call for action. Return at most 12 items.",
   "Return only a JSON object. Use this format and do not copy the example values:",
-  '{"items":[{"title":"Registration deadline","courseHint":"","date":"2026-11-25","time":"18:00","dateMeaning":"submission-deadline","excerpt":"Register by 2026-11-25 at 18:00","reviewReason":""}]}',
+  '{"items":[{"title":"Registration deadline","courseHint":"","date":"2026-11-25","time":"18:00","dateMeaning":"submission-deadline","excerpt":"Register by 2026-11-25 at 18:00","estimatedMinutes":90,"reviewReason":""}]}',
   'Valid dateMeaning values are submission-deadline, scheduled-start, and date-to-remember. Return {"items":[]} if there are no actionable items.',
 ].join(" ");
 
@@ -75,6 +77,14 @@ function detectMime(bytes: Buffer): ImportMime | undefined {
   if (bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP") return "image/webp";
 }
 
+function normalizeMinutes(value: unknown): number | undefined {
+  if (typeof value !== "number" && typeof value !== "string") return undefined;
+  if (typeof value === "string" && !value.trim()) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.min(1440, Math.max(5, Math.round(parsed / 5) * 5));
+}
+
 function normalizeCandidate(value: unknown): ImportCandidate | undefined {
   if (!value || typeof value !== "object") return;
   const item = value as Record<string, unknown>;
@@ -91,6 +101,7 @@ function normalizeCandidate(value: unknown): ImportCandidate | undefined {
     title, date, time, dateMeaning: data.dateMeaning, courseHint: data.courseHint.trim().slice(0, 150),
     excerpt: data.excerpt.trim().slice(0, 600),
     reviewReason: data.reviewReason.trim().slice(0, 300) || (!date ? "Confirm the date before importing." : ""),
+    estimatedMinutes: normalizeMinutes(data.estimatedMinutes),
   };
 }
 

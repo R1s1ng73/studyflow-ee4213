@@ -13,7 +13,7 @@ import {
 } from "@/lib/task-import";
 import type { DateMeaning, TaskDraft } from "@/lib/types";
 
-interface ReviewItem extends ImportCandidate {
+interface ReviewItem extends Omit<ImportCandidate, "estimatedMinutes"> {
   id: string;
   filename: string;
   selected: boolean;
@@ -71,7 +71,9 @@ export function TaskImportPage() {
         for (const [offset, item] of result.value.entries()) {
           const courseId = guessImportCourse(item.courseHint, state.courses);
           const time = item.time || (item.dateMeaning === "submission-deadline" ? DEFAULT_DEADLINE_TIME : "");
-          const estimatedMinutes = estimateTaskMinutes({ title: item.title, assessmentType: "other" }).toString();
+          // Prefer the estimate the model drew from the document; fall back to the local title heuristic.
+          const estimate = item.estimatedMinutes ?? estimateTaskMinutes({ title: item.title, assessmentType: "other" });
+          const estimatedMinutes = estimate.toString();
           const candidate = { ...item, time, courseId };
           const selected = !findImportMatches(item, state.tasks).length &&
             !next.some((existing) => sameImportSlot(existing, candidate));
@@ -210,7 +212,7 @@ export function TaskImportPage() {
                           inputMode="numeric" value={item.estimatedMinutes}
                           aria-describedby={`estimate-help-${item.id}`}
                           onChange={(event) => update(item.id, { estimatedMinutes: event.target.value })} />
-                        <span className="form-text" id={`estimate-help-${item.id}`}>Suggested from the title. Adjust if needed.</span>
+                        <span className="form-text" id={`estimate-help-${item.id}`}>Estimated from the document. Adjust if needed.</span>
                       </div>
                     </div>
                     {item.courseHint && item.courseId === EXTERNAL_COURSE.id ? <p className="small text-secondary mt-2 mb-0">Course mentioned in file · {item.courseHint}</p> : null}

@@ -25,10 +25,16 @@ it("sends the poster to the model and retains valid dates and source evidence fo
     choices: [{ finish_reason: "stop", message: { content: JSON.stringify({
       items: [{
         title: "Harbour Code Hackathon registration", courseHint: "", date: "2026-11-25",
-        time: "18:00", dateMeaning: "submission-deadline", excerpt: "報名截止 2026-11-25 18:00", reviewReason: "",
+        time: "18:00", dateMeaning: "submission-deadline", excerpt: "報名截止 2026-11-25 18:00",
+        estimatedMinutes: 183, reviewReason: "",
       }, {
         title: "Team briefing", courseHint: "", date: "2026-02-30",
-        time: "", dateMeaning: "scheduled-start", excerpt: "Team briefing", reviewReason: "",
+        time: "", dateMeaning: "scheduled-start", excerpt: "Team briefing",
+        estimatedMinutes: "unknown", reviewReason: "",
+      }, {
+        title: "Long project", courseHint: "", date: "2026-12-10",
+        time: "", dateMeaning: "date-to-remember", excerpt: "Build the long project",
+        estimatedMinutes: 99999, reviewReason: "",
       }],
     }) } }],
   }));
@@ -41,11 +47,15 @@ it("sends the poster to the model and retains valid dates and source evidence fo
   const request = JSON.parse(init.body as string);
   expect(request.model).toBe("deepseek-flash");
   expect(request.response_format).toEqual({ type: "json_object" });
+  expect(request.messages[0].content).toContain("estimatedMinutes");
   expect(request.messages[1].content[1].image_url.url).toBe(`data:image/png;base64,${poster.toString("base64")}`);
-  expect((await response.json()).items).toMatchObject([
-    { date: "2026-11-25", time: "18:00", excerpt: "報名截止 2026-11-25 18:00" },
+  const items = (await response.json()).items;
+  expect(items).toMatchObject([
+    { date: "2026-11-25", time: "18:00", excerpt: "報名截止 2026-11-25 18:00", estimatedMinutes: 185 },
     { date: "", reviewReason: "Confirm the date before importing." },
+    { title: "Long project", estimatedMinutes: 1440 },
   ]);
+  expect(items[1].estimatedMinutes).toBeUndefined();
 });
 
 it("uses OCR for PDFs and sends the recognized text in page order to DeepSeek Flash", async () => {

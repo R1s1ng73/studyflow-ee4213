@@ -21,6 +21,8 @@ export interface ImportCandidate {
   dateMeaning: DateMeaning;
   excerpt: string;
   reviewReason: string;
+  /** Suggested focused minutes from the uploaded document, when the model provides one. */
+  estimatedMinutes?: number;
 }
 
 export const EXTERNAL_COURSE: Course = {
@@ -47,7 +49,7 @@ export function sameImportSlot(
     left.dateMeaning === right.dateMeaning && left.date === right.date && (left.time ?? "") === (right.time ?? ""));
 }
 
-export function findImportMatches(candidate: ImportCandidate, tasks: Task[]): Task[] {
+export function findImportMatches(candidate: Pick<ImportCandidate, "title">, tasks: Task[]): Task[] {
   const title = normalize(candidate.title);
   if (!title) return [];
   return tasks.filter((task) => {
