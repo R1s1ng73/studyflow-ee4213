@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTaskMinutes } from "./estimate";
+import { estimateTaskMinutes, normalizeEstimateMinutes } from "./estimate";
 
 describe("estimateTaskMinutes", () => {
   it("uses the assessment type when the title has no stronger signal", () => {
@@ -27,5 +27,25 @@ describe("estimateTaskMinutes", () => {
     expect(
       estimateTaskMinutes({ title: "Dissertation", assessmentType: "exam", gradeWeight: 50 }),
     ).toBe(450);
+  });
+});
+
+describe("normalizeEstimateMinutes", () => {
+  it("accepts whole minutes in range and rounds to five", () => {
+    expect(normalizeEstimateMinutes(60)).toBe(60);
+    expect(normalizeEstimateMinutes(183)).toBe(185);
+    expect(normalizeEstimateMinutes("90")).toBe(90);
+  });
+
+  it("clamps to the planning range", () => {
+    expect(normalizeEstimateMinutes(1)).toBe(5);
+    expect(normalizeEstimateMinutes(99999)).toBe(1440);
+  });
+
+  it("rejects unusable values", () => {
+    expect(normalizeEstimateMinutes(undefined)).toBeUndefined();
+    expect(normalizeEstimateMinutes(null)).toBeUndefined();
+    expect(normalizeEstimateMinutes("")).toBeUndefined();
+    expect(normalizeEstimateMinutes("unknown")).toBeUndefined();
   });
 });

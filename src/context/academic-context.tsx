@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { ACADEMIC_STORAGE_KEY, isAcademicState, parseStoredState, serializeState } from "@/lib/storage";
-import { estimateTaskMinutes } from "@/lib/estimate";
+import { estimateTaskMinutes, normalizeEstimateMinutes } from "@/lib/estimate";
 import { STORAGE_VERSION, type AcademicState, type Task, type TaskDraft } from "@/lib/types";
 import { academicReducer } from "./academic-reducer";
 
@@ -41,7 +41,7 @@ interface AcademicContextValue {
   addTask: (draft: TaskDraft) => Task;
   importTasks: (drafts: TaskDraft[]) => void;
   updateTask: (id: string, changes: Partial<Task>, confirmation?: string) => void;
-  estimateTasks: (tasks: Task[]) => void;
+  estimateTasks: (tasks: Task[]) => Promise<void>;
   deleteTask: (id: string) => void;
   canvasSync: { busy: boolean; message: string; syncedAt?: string };
   syncCanvas: () => Promise<void>;
@@ -156,12 +156,39 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
     setToastMessage(confirmation ?? "Task changes saved.");
   }, []);
 
-  const estimateTasks = useCallback((tasks: Task[]) => {
-    const entries = tasks.map((task) => ({ id: task.id, minutes: estimateTaskMinutes(task) }));
-    if (entries.length === 0) return;
-    dispatch({ type: "tasks/estimate", entries, changedAt: new Date().toISOString() });
+  const estimateTasks = useCallback(async (tasks: Task[]) => {
+    if (tasks.length === 0) return;
+    const changedAt = new Date().toISOString();
+
+    // Only task titles go to the model, as requested.
+    let estimates: unknown[] | undefined;
+    try {
+      const response = await fetch("/api/tasks/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titles: tasks.map((task) => task.title) }),
+      });
+      const payload = await response.json().catch(() => null) as { estimates?: unknown } | null;
+      if (response.ok && Array.isArray(payload?.estimates)) estimates = payload.estimates;
+    } catch {
+      estimates = undefined;
+    }
+
+    let aiCount = 0;
+    const entries = tasks.map((task, index) => {
+      const aiEstimate = normalizeEstimateMinutes(estimates?.[index]);
+      if (aiEstimate !== undefined) aiCount += 1;
+      return { id: task.id, minutes: aiEstimate ?? estimateTaskMinutes(task) };
+    });
+    dispatch({ type: "tasks/estimate", entries, changedAt });
+
+    const total = entries.length;
     setToastMessage(
-      `Filled in ${entries.length} ${entries.length === 1 ? "estimate" : "estimates"}. Adjust any value that needs more time.`,
+      aiCount === total
+        ? `AI filled in ${total} ${total === 1 ? "estimate" : "estimates"} from task titles. Adjust any value that needs more time.`
+        : aiCount > 0
+          ? `AI estimated ${aiCount} ${aiCount === 1 ? "task" : "tasks"}; filled the other ${total - aiCount} from the title heuristic.`
+          : `Filled in ${total} ${total === 1 ? "estimate" : "estimates"} locally; the AI estimate was unavailable.`,
     );
   }, []);
 

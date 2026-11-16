@@ -1,12 +1,26 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AcademicProvider } from "@/context/academic-context";
 import { createDemoData } from "@/lib/demo-data";
 import { ACADEMIC_STORAGE_KEY, serializeState } from "@/lib/storage";
 import { MyTasksPage } from "./my-tasks-page";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function requestUrl(input: RequestInfo | URL): string {
+  return typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+}
 
 describe("MyTasksPage missing-estimate flow", () => {
   beforeEach(() => localStorage.setItem(ACADEMIC_STORAGE_KEY, serializeState(createDemoData())));
@@ -76,8 +90,13 @@ describe("MyTasksPage undated filtering and bulk estimates", () => {
     expect(screen.getByRole("button", { name: "Undated Canvas reading" })).toBeVisible();
   });
 
-  it("fills every missing estimate in the tasks currently shown", async () => {
+  it("fills every missing estimate from the AI titles", async () => {
     const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      requestUrl(input).includes("/api/canvas/sync")
+        ? jsonResponse({ message: "Canvas offline." }, 503)
+        : jsonResponse({ estimates: [95] }),
+    );
     render(
       <AcademicProvider>
         <MyTasksPage />
@@ -87,7 +106,38 @@ describe("MyTasksPage undated filtering and bulk estimates", () => {
     await screen.findByRole("heading", { level: 1, name: "My Tasks" });
     await user.click(screen.getByRole("button", { name: "Estimate missing times (1)" }));
 
-    expect(screen.getByRole("button", { name: "All shown tasks have estimates" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Estimate missing times (1)" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "All shown tasks have estimates" })).toBeDisabled();
+    const estimateCall = fetchMock.mock.calls.find(([input]) => requestUrl(input).includes("/api/tasks/estimate"));
+    expect(estimateCall).toBeTruthy();
+    expect(JSON.parse((estimateCall![1] as RequestInit).body as string)).toEqual({
+      titles: ["Review lecture annotations"],
+    });
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY)!);
+      expect(stored.tasks.find((task: { id: string }) => task.id === "task-no-estimate").estimatedMinutes).toBe(95);
+    });
+  });
+
+  it("falls back to the local title heuristic when the estimate service fails", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      requestUrl(input).includes("/api/canvas/sync")
+        ? jsonResponse({ message: "Canvas offline." }, 503)
+        : jsonResponse({ message: "Estimator down." }, 502),
+    );
+    render(
+      <AcademicProvider>
+        <MyTasksPage />
+      </AcademicProvider>,
+    );
+
+    await screen.findByRole("heading", { level: 1, name: "My Tasks" });
+    await user.click(screen.getByRole("button", { name: "Estimate missing times (1)" }));
+
+    expect(await screen.findByRole("button", { name: "All shown tasks have estimates" })).toBeDisabled();
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY)!);
+      expect(stored.tasks.find((task: { id: string }) => task.id === "task-no-estimate").estimatedMinutes).toBe(45);
+    });
   });
 });

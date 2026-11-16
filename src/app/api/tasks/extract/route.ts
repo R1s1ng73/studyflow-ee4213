@@ -1,6 +1,7 @@
 import { isLocalPost } from "@/lib/local-request";
 import { IMPORT_DATE_LABELS, IMPORT_MIME, MAX_IMPORT_BYTES, type ImportCandidate, type ImportMime } from "@/lib/task-import";
 import { parseDateOnly } from "@/lib/date";
+import { normalizeEstimateMinutes } from "@/lib/estimate";
 
 const instructions = [
   "Extract actionable tasks, deadlines, and scheduled events from this single file for a student's calendar.",
@@ -77,14 +78,6 @@ function detectMime(bytes: Buffer): ImportMime | undefined {
   if (bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP") return "image/webp";
 }
 
-function normalizeMinutes(value: unknown): number | undefined {
-  if (typeof value !== "number" && typeof value !== "string") return undefined;
-  if (typeof value === "string" && !value.trim()) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return undefined;
-  return Math.min(1440, Math.max(5, Math.round(parsed / 5) * 5));
-}
-
 function normalizeCandidate(value: unknown): ImportCandidate | undefined {
   if (!value || typeof value !== "object") return;
   const item = value as Record<string, unknown>;
@@ -101,7 +94,7 @@ function normalizeCandidate(value: unknown): ImportCandidate | undefined {
     title, date, time, dateMeaning: data.dateMeaning, courseHint: data.courseHint.trim().slice(0, 150),
     excerpt: data.excerpt.trim().slice(0, 600),
     reviewReason: data.reviewReason.trim().slice(0, 300) || (!date ? "Confirm the date before importing." : ""),
-    estimatedMinutes: normalizeMinutes(data.estimatedMinutes),
+    estimatedMinutes: normalizeEstimateMinutes(data.estimatedMinutes),
   };
 }
 

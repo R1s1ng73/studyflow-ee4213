@@ -32,6 +32,24 @@ const KEYWORD_MINUTES: Array<[RegExp, number]> = [
 const MINIMUM_MINUTES = 15;
 const MAXIMUM_MINUTES = 480;
 
+export const MIN_ESTIMATE_MINUTES = 5;
+export const MAX_ESTIMATE_MINUTES = 1440;
+
+/**
+ * Validates an estimate returned by the model: a whole number of minutes from
+ * 5 to 1440, rounded to the nearest five. Returns undefined when unusable.
+ */
+export function normalizeEstimateMinutes(value: unknown): number | undefined {
+  if (typeof value !== "number" && typeof value !== "string") return undefined;
+  if (typeof value === "string" && !value.trim()) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.min(
+    MAX_ESTIMATE_MINUTES,
+    Math.max(MIN_ESTIMATE_MINUTES, Math.round(parsed / 5) * 5),
+  );
+}
+
 /**
  * Local, deterministic planning estimate. Signals: assessment type, action words
  * in the title/notes, and grade weight. Keeps the workspace usable without an

@@ -27,6 +27,7 @@ export function MyTasksPage() {
   const [showMissing, setShowMissing] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showUndated, setShowUndated] = useState(false);
+  const [estimating, setEstimating] = useState(false);
 
   const currentStudentTasks = useMemo(() => getTasksForCurrentStudent(state), [state]);
   const highImpact = useMemo(() => getHighImpactTasks(currentStudentTasks), [currentStudentTasks]);
@@ -212,13 +213,23 @@ export function MyTasksPage() {
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-primary ms-sm-auto"
-                  disabled={pendingEstimates.length === 0}
-                  onClick={() => estimateTasks(pendingEstimates)}
+                  disabled={pendingEstimates.length === 0 || estimating}
+                  aria-busy={estimating}
+                  onClick={async () => {
+                    setEstimating(true);
+                    try {
+                      await estimateTasks(pendingEstimates);
+                    } finally {
+                      setEstimating(false);
+                    }
+                  }}
                 >
                   <IconSparkles size={16} className="me-1" />
-                  {pendingEstimates.length > 0
-                    ? `Estimate missing times (${pendingEstimates.length})`
-                    : "All shown tasks have estimates"}
+                  {estimating
+                    ? "Estimating…"
+                    : pendingEstimates.length > 0
+                      ? `Estimate missing times (${pendingEstimates.length})`
+                      : "All shown tasks have estimates"}
                 </button>
               ) : null}
             </div>
